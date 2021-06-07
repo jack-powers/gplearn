@@ -145,6 +145,11 @@ def _log_loss(y, y_pred, w):
     score = y * np.log(y_pred) + (1 - y) * np.log(inv_y_pred)
     return np.average(-score, weights=w)
 
+def _simulation_run(alpha):
+    in_time, in_turn = Model()
+    return alpha*in_time + (1-alpha) * in_turn
+
+simulation_run = _Fitness(function=_simulation_run, greater_is_better=True)
 
 weighted_pearson = _Fitness(function=_weighted_pearson,
                             greater_is_better=True)
@@ -164,4 +169,5 @@ _fitness_map = {'pearson': weighted_pearson,
                 'mean absolute error': mean_absolute_error,
                 'mse': mean_square_error,
                 'rmse': root_mean_square_error,
-                'log loss': log_loss}
+                'log loss': log_loss,
+                'simulation':simulation_run}
