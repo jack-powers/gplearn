@@ -9,6 +9,7 @@ the computer programs created by the :mod:`gplearn.genetic` module.
 # License: BSD 3 clause
 
 import numbers
+# import Pscore as PS
 
 import numpy as np
 from joblib import wrap_non_picklable_objects
