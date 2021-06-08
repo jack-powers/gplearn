@@ -9,7 +9,7 @@ the computer programs created by the :mod:`gplearn.genetic` module.
 # License: BSD 3 clause
 
 import numbers
-# import Pscore as PS
+import Pscore as PS
 
 import numpy as np
 from joblib import wrap_non_picklable_objects
@@ -146,9 +146,9 @@ def _log_loss(y, y_pred, w):
     score = y * np.log(y_pred) + (1 - y) * np.log(inv_y_pred)
     return np.average(-score, weights=w)
 
-def _simulation_run(alpha):
-    in_time, in_turn = Model()
-    return alpha*in_time + (1-alpha) * in_turn
+def _simulation_run(y, y_pred, w):
+    in_time, in_turn = PS.Model()
+    return w*in_time + (1-w) * in_turn
 
 simulation_run = _Fitness(function=_simulation_run, greater_is_better=True)
 
