@@ -144,10 +144,12 @@ def _parallel_evolve(n_programs, parents, X, y, sample_weight, seeds, params):
         curr_sample_weight[not_indices] = 0
         oob_sample_weight[indices] = 0
 
-        program.raw_fitness_ = program.raw_fitness(X, y, curr_sample_weight)
+        # program.raw_fitness_ = program.raw_fitness(X, y, curr_sample_weight)
+        program.raw_fitness_ = program.run_simulation_fitness(curr_sample_weight)
+
         if max_samples < n_samples:
             # Calculate OOB fitness
-            program.oob_fitness_ = program.raw_fitness(X, y, oob_sample_weight)
+            program.oob_fitness_ = program.run_simulation_fitness(oob_sample_weight)#program.raw_fitness(X, y, oob_sample_weight)
 
         programs.append(program)
 
@@ -681,7 +683,7 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
             self._metric = self.metric
         elif isinstance(self, RegressorMixin):
             if self.metric not in ('mean absolute error', 'mse', 'rmse',
-                                   'pearson', 'spearman'):
+                                   'pearson', 'spearman', 'simulation'):
                 raise ValueError('Unsupported metric: %s' % self.metric)
             self._metric = _fitness_map[self.metric]
         elif isinstance(self, ClassifierMixin):

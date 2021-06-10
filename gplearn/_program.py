@@ -13,6 +13,7 @@ from copy import copy
 
 import numpy as np
 from sklearn.utils.random import sample_without_replacement
+import Pscore as PS
 
 from .functions import _Function
 from .utils import check_random_state
@@ -465,6 +466,14 @@ class _Program(object):
         raw_fitness = self.metric(y, y_pred, sample_weight)
 
         return raw_fitness
+
+
+    def run_simulation_fitness(self,weight):
+        in_time, in_turn = PS.Model(self.program)
+        raw_fitness = weight*in_time + (1-weight) * in_turn
+        return raw_fitness
+
+
 
     def fitness(self, parsimony_coefficient=None):
         """Evaluate the penalized fitness of the program according to X, y.

@@ -40,10 +40,38 @@ class GLOBALS:
     
     functional_form = None
 
+class _Function(object):
 
+    """A representation of a mathematical relationship, a node in a program.
+
+    This object is able to be called with NumPy vectorized arguments and return
+    a resulting vector based on a mathematical relationship.
+
+    Parameters
+    ----------
+    function : callable
+        A function with signature function(x1, *args) that returns a Numpy
+        array of the same shape as its arguments.
+
+    name : str
+        The name for the function as it should be represented in the program
+        and its visualizations.
+
+    arity : int
+        The number of arguments that the ``function`` takes.
+
+    """
+
+    def __init__(self, function, name, arity):
+        self.function = function
+        self.name = name
+        self.arity = arity
+
+    def __call__(self, *args):
+        return self.function(*args)
 
 class Patient:
-    def __init__(self,env, OR_Rooms):
+    def __init__(self,env, OR_Rooms, func_form):
         GLOBALS.patient_count += 1
         self.env = env
         self.ID = GLOBALS.patient_count
@@ -60,6 +88,8 @@ class Patient:
         self.s = random.uniform(0,1) * 4
         self.p = random.uniform(0,1) * 4
         self.r = random.uniform(0,1) * 4
+        
+        clinical_factors = [self.s, self.p, self.r] # equiv to X array in gplearn
         # self.l = random.uniform(0,1) * 4
         # self.i = random.uniform(0,1) * 4
         # self.d = random.uniform(0,1) * 4
@@ -67,7 +97,7 @@ class Patient:
         # self.w = random.uniform(0,1) * 4
         
         
-        self.p_score_coefficent = 3*(0.4*self.r ** 2 + 0.4*self.s ** 2 + 0.2*self.p ** 2) #if self.r > 2 else (1+0.23*self.s**2+0.14*self.p**2+0.15*self.r**2+0.14*self.l**2+0.12*self.i**2+0.05*self.d**2+0.08*self.c**2+0.09*self.w**2)               
+        self.p_score_coefficent = self.calculate_coefficient(func_form, clinical_factors)###3*(0.4*self.r ** 2 + 0.4*self.s ** 2 + 0.2*self.p ** 2) #if self.r > 2 else (1+0.23*self.s**2+0.14*self.p**2+0.15*self.r**2+0.14*self.l**2+0.12*self.i**2+0.05*self.d**2+0.08*self.c**2+0.09*self.w**2)               
         self.p_score = round(self.p_score_coefficent * -1)
         
     
@@ -97,6 +127,55 @@ class Patient:
         self.env.process(self.patient_process())
         self.env.process(self.calculate_rank())
         
+            
+    def calculate_coefficient(self, functional_form, X):
+            """Execute the program according to X.
+
+            Parameters
+            ----------
+            X : {array-like}, shape = [n_samples, n_features]
+                Training vectors, where n_samples is the number of samples and
+                n_features is the number of features.
+
+            Returns
+            -------
+            y_hats : array-like, shape = [n_samples]
+                The result of executing the program on X.
+
+            """
+            # Check for single-node programs
+            node = functional_form.program[0]
+            if isinstance(node, float):
+                return np.repeat(node, X.shape[0])
+            if isinstance(node, int):
+                return X[:, node]
+
+            apply_stack = []
+
+            for node in functional_form.program:
+
+                if isinstance(node, _Function):
+                    apply_stack.append([node])
+                else:
+                    # Lazily evaluate later
+                    apply_stack[-1].append(node)
+
+                while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
+                    # Apply functions that have sufficient arguments
+                    function = apply_stack[-1][0]
+                    terminals = [np.repeat(t, X.shape[0]) if isinstance(t, float)
+                                else X[:, t] if isinstance(t, int)
+                                else t for t in apply_stack[-1][1:]]
+                    intermediate_result = function(*terminals)
+                    if len(apply_stack) != 1:
+                        apply_stack.pop()
+                        apply_stack[-1].append(intermediate_result)
+                    else:
+                        return intermediate_result
+
+            # We should never get here
+            return None
+
         
         
     def calculate_rank(self):
@@ -131,7 +210,6 @@ class Patient:
                 self.patient_rank_time.append(self.env.now)                        
                     
 
-        
     def patient_process(self):
         with self.OR_Rooms.request(priority=self.p_score) as req:
             
@@ -149,7 +227,7 @@ class Patient:
                     GLOBALS.patients_treated_out_turn += 1               
                 
                 self.patient_active = False
-                                                          
+                                                        
                 self.queuing_time = self.env.now - self.time_in
                 if self.queuing_time < self.max_wait_time:
                     GLOBALS.patients_treated_in_time += 1
@@ -178,7 +256,7 @@ class Patient:
                 self.p_score_update_times.append(self.env.now)
                 self.p_score_updates.append(self.p_score)  
                 GLOBALS.patients_waiting -+ 1
-                               
+                            
             else: # patient spot being recalualted                
                 self.p_score = round(self.p_score_coefficent * -1 * (self.env.now - self.time_in))                    
                 self.p_score_update_times.append(self.env.now)
@@ -197,13 +275,13 @@ def Model(functonal_form):
     # patients = []
 
     for _ in range(20):
-        GLOBALS.patients.append(Patient(env, OR_rooms))
+        GLOBALS.patients.append(Patient(env, OR_rooms,functonal_form))
 
 
     def patients_source(env):
         while True:
             yield env.timeout(random.expovariate(1/11))  # timeout before creation
-            p = Patient(env, OR_rooms)
+            p = Patient(env, OR_rooms,functonal_form)
             GLOBALS.patients.append(p)
         
     
@@ -223,7 +301,6 @@ def Model(functonal_form):
 
 
     # print(patient_data)
-
     # print(patient_data.describe())
     
     in_turn = GLOBALS.patients_treated_in_turn*100 / (GLOBALS.patients_treated_in_turn + GLOBALS.patients_treated_out_turn)
@@ -237,65 +314,4 @@ def Model(functonal_form):
     
     return in_turn, in_time
 
-#patient_data.to_csv("patient_data.csv")
-
-
 # in_turn, in_time = Model()
-
-
-
-
-
-# for patient in patients:
-#     if len(patient.patient_rank_time) != 0:
-#         plt.plot(patient.patient_rank_time, patient.patient_rank)
-#         if patient.surgery_complete:
-#             plt.plot(patient.patient_rank_time[-1], patient.patient_rank[-1], "b.")
-    
-
-    
-# plt.ylabel('Rank')
-# plt.xlabel('Time')  
-
-   
-
-# plt.show()
-
-
-###########
-# if GRAPH_FLAG:
-#     fig = go.Figure()
-#     for patient in patients:
-#         if len(patient.patient_rank_time) != 0:
-#             fig.add_trace(go.Scatter(x=patient.patient_rank_time, y=np.array(patient.patient_rank), mode="lines"))
-#             # if patient.surgery_complete:
-#             #     fig.add_trace(go.Scatter(x=[patient.patient_rank_time[-1]], y = [patient.patient_rank[-1]]))
-        
-#     fig.update_layout(title_text = "Ranking", xaxis_title = "Time", yaxis_title = "Rank")
-    
-        
-#     fig.show()
-
-
-#     fig = go.Figure()
-#     for patient in patients:
-#         fig.add_trace(go.Scatter(x=patient.p_score_update_times, y=np.array(patient.p_score_updates)*-1, mode="lines"))
-#         # if patient.surgery_complete:
-#         #     fig.add_trace(go.Scatter(x=patient.p_score_update_times[-1], y=(np.array(patient.p_score_updates)*-1), mode = "markers"))
-        
-        
-        
-#     fig.update_layout(title_text = "Patient P-Score", xaxis_title = "Time", yaxis_title = "P-Score")
-#     fig.update_layout(showlegend=False)
-
-#     fig.show()
-
-
-# fig = go.Figure()
-# for time, valsin patients:
-#     fig.add_trace(go.Scatter(x=patient.patient_rank_time, y=np.array(patient.patient_rank), mode="lines"))
-    
-# fig.update_layout(title_text = "Ranking222222", xaxis_title = "Time", yaxis_title = "Rank")
-   
-    
-# fig.show()
