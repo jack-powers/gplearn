@@ -99,7 +99,7 @@ class Patient:
         
         self.p_score_coefficent = self.calculate_coefficient(func_form, clinical_factors)###3*(0.4*self.r ** 2 + 0.4*self.s ** 2 + 0.2*self.p ** 2) #if self.r > 2 else (1+0.23*self.s**2+0.14*self.p**2+0.15*self.r**2+0.14*self.l**2+0.12*self.i**2+0.05*self.d**2+0.08*self.c**2+0.09*self.w**2)               
         self.p_score = round(self.p_score_coefficent * -1)
-        
+        print("done coef")
     
         
         self.surgery_length = 20     

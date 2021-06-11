@@ -258,8 +258,8 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
                                      run_details['average_length'][-1],
                                      run_details['average_fitness'][-1],
                                      run_details['best_length'][-1],
-                                     run_details['best_fitness'][-1],
-                                     oob_fitness,
+                                     run_details['best_fitness'][-1][0],
+                                     oob_fitness[0],
                                      remaining_time))
 
     def fit(self, X, y, sample_weight=None):
